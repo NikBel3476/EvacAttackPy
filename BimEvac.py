@@ -322,6 +322,10 @@ class Moving(object):
         # Зная скорость потока, можем вычислить конкретное количество человек,
         # которое может перейти в принимющую зону (путем умножения потока на шаг моделирования)
         return P * self.MODELLING_STEP
+    
+
+    def num_of_people_inside_building(self) -> float:
+        return sum([x["NumPeople"] for x in self.zones.values() if x["IsVisited"]])
 
     def set_density(self, density: float):
         for z in self.zones.values():

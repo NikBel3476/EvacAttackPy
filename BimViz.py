@@ -58,10 +58,10 @@ def visualization():
                 if e in moving.zones:
                     c.itemconfigure(cv_els["text"], text="{:6.2f}".format(moving.zones[e]["NumPeople"]))
                     c.itemconfigure(cv_els["polygon"], fill=moving.zones[e].get("Color"))
-        nop = sum([x["NumPeople"] for x in moving.zones.values() if x["IsVisited"]])
+
         if intruder and intruder.precalculate_path and intruder.p_path:
             return
-        elif moving.active and nop > 0:
+        elif moving.active and moving.num_of_people_inside_building() > 0:
             return
         nop_sz = sum(z["NumPeople"] for z in moving.safety_zones)
         tkinter.messagebox.showinfo("Визуализация окончена", f"Ущерб: {int(intruder.victims if intruder else 0)} чел. Длительность визуализации: {moving.time*60:.{5}} с. ({moving.time:.{5}} мин.)"
