@@ -1,7 +1,7 @@
 import tkinter
 from tkinter import filedialog
 import json
-from EvacAttackShared import points, is_el_on_lvl, point_in_polygon
+from EvacAttackShared import points, is_el_on_lvl, point_in_polygon, BimJsonObject, BimJsonElement
 from EvacAttackModel import EvacAttackModel
 from pprint import pformat
 
@@ -19,14 +19,14 @@ def visualization():
                 max_y = max(max_y, y)
     offset_x, offset_y = -min_x, -min_y
 
-    def crd(x, y):
+    def crd(x: float, y: float) -> tuple[float, float]:
         ''' Перевод из координат здания в координаты canvas '''
         return (offset_x+x)*scale, (offset_y-y)*scale
 
-    def cntr(el):
+    def cntr(el: BimJsonElement) -> tuple[float, float]:
         ''' Центр для canvas по координатам здания '''
         xy = [crd(x, y) for x, y in points(el)]
-        return sum((x for x, y in xy))/len(xy), sum((y for x, y in xy))/len(xy)
+        return sum((x for x, _ in xy))/len(xy), sum((y for _, y in xy))/len(xy)
 
     def vis_step():
         moving, intruder = model.moving, model.intruder
@@ -133,7 +133,7 @@ filename = filedialog.askopenfilename(filetypes=(("BIM JSON", "*.json"),))
 if not filename:
     exit()
 with open(filename) as f:
-    j = json.load(f)
+    j: BimJsonObject = json.load(f)
 
 
 model = EvacAttackModel(j)

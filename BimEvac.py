@@ -1,7 +1,8 @@
 import math
 import json
-from EvacAttackShared import points, room_area, cntr_real
+from EvacAttackShared import points, room_area, BimJsonObject, BimJsonElement
 from math import exp
+
 
 class PeopleFlowVelocity(object):
     ROOM, TRANSIT, STAIR_UP, STAIR_DOWN = range(4)
@@ -12,6 +13,8 @@ class PeopleFlowVelocity(object):
         STAIR_DOWN: [100, 0.400, 0.89],
         STAIR_UP: [60, 0.305, 0.67],
     }
+    D09: float
+
 
     def __init__(self, projection_area: float = 0.1) -> None:
         self.projection_area = projection_area
@@ -118,27 +121,52 @@ class PeopleFlowVelocity(object):
 
         return self.velocity(v0, a, d0, d) if d > d0 else v0
 
+class Zone(BimJsonElement):
+    IsBlocked: bool
+    IsVisited: bool
+    Area: float
+    Potential: float
+    Color: str
+    Density: float
+    NumPeople: float
+    ExitTransitId: str
+
+
+class Transit(BimJsonElement):
+    IsBlocked: bool
+    IsVisited: bool
+    NumPeople: float
+    Width: float
+    Color: str
+
 
 class Moving(object):
     MODELLING_STEP = 0.008  # мин.
     MIN_DENSIY = 0.005  # чел./м2
     MAX_DENSIY = 5.0  # чел./м2
 
-    def __init__(self, bim) -> None:
+    def __init__(self, bim: BimJsonObject) -> None:
+        self.active = False
         self.bim = bim
         self.pfv = PeopleFlowVelocity(projection_area=0.1)
         self._step_counter = [0, 0, 0]
         self.direction_pairs = {}
-        self.zones = {el["Id"]:el for lvl in self.bim['Level'] for el in lvl['BuildElement'] if el['Sign'] in ('Room', 'Staircase')}
-        self.transits = {el["Id"]:el for lvl in self.bim['Level'] for el in lvl['BuildElement'] if el['Sign'] in ('DoorWayInt', 'DoorWay', 'DoorWayOut')}
+        self.zones: dict[str, Zone] = {
+            el["Id"]: el for lvl in self.bim['Level'] for el in lvl['BuildElement'] if el['Sign'] in ('Room', 'Staircase')
+        }
+        self.transits: dict[str, Transit] = {
+            el["Id"]: el for lvl in self.bim['Level'] for el in lvl['BuildElement'] if el['Sign'] in ('DoorWayInt', 'DoorWay', 'DoorWayOut')
+        }
         # Заполняем высоту
         for lvl in self.bim['Level']:
             for el in lvl['BuildElement']:
                 if "ZLevel" not in el:
                     el["ZLevel"] = lvl["ZLevel"]
         self.lvlname = 'NameLevel' if self.bim['Level'][0].get('NameLevel') else 'Name'
-        self.safety_zones = [{"Output": [key,], "ZLevel": val["ZLevel"], "NumPeople": 0.0, "Sign": "SZ", "Potential": 0.0}
-                             for key, val in self.transits.items() if val['Sign'] == "DoorWayOut"]
+        self.safety_zones: list[Zone] = [
+            {"Output": [key,], "ZLevel": val["ZLevel"], "NumPeople": 0.0, "Sign": "SZ", "Potential": 0.0}
+            for key, val in self.transits.items() if val['Sign'] == "DoorWayOut"
+        ]
         for t in self.transits.values():
             t["IsBlocked"] = False
             t["IsVisited"] = False
@@ -209,6 +237,10 @@ class Moving(object):
                     giving_zone["Potential"] = new_pot
                     giving_zone["Color"] = receiving_zone.get("Color")
                     transit["Color"] = receiving_zone.get("Color")
+                    if receiving_zone["Sign"] == "SZ":
+                        giving_zone["ExitTransitId"] = transit["Id"]
+                    else:
+                        giving_zone["ExitTransitId"] = receiving_zone["ExitTransitId"]
                 zones_to_process.sort(key=lambda d: d["Potential"])
 
                 self._step_counter[2] += 1
@@ -216,18 +248,18 @@ class Moving(object):
             self._step_counter[1] += 1
         self.time += self.MODELLING_STEP
 
-    def potential(self, rzone, gzone, twidth):
+    def potential(self, rzone: Zone, gzone: Zone, twidth: float):
         p = math.sqrt(gzone["Area"]) / self.speed_at_exit(rzone, gzone, twidth)
         return rzone["Potential"] + p
 
-    def speed_at_exit(self, rzone, gzone, twidth):
+    def speed_at_exit(self, rzone: Zone, gzone: Zone, twidth: float):
         # Определение скорости на выходе из отдающего помещения
         zone_speed = self.speed_in_element(rzone, gzone)
         transition_speed = self.pfv.speed_through_transit(twidth, gzone["Density"])
 
         return min(zone_speed, transition_speed)
 
-    def speed_in_element(self, rzone, gzone):
+    def speed_in_element(self, rzone: Zone, gzone: Zone):
         # По умолчанию, используется скорость движения по горизонтальной поверхности
         v_zone = self.pfv.speed_in_room(gzone["Density"])
 
@@ -249,7 +281,7 @@ class Moving(object):
 
         return v_zone
 
-    def part_of_people_flow(self, rzone, gzone, transit):
+    def part_of_people_flow(self, rzone: Zone, gzone: Zone, transit: Transit) -> float:
         # density_min_giver_zone = 0.5 / area_giver_zone
         min_density_gzone = self.MIN_DENSIY  # if self.MIN_DENSIY > 0 else self.pfv.projection_area * 0.5 / gzone.area
 
@@ -284,14 +316,14 @@ class Moving(object):
         else:
             return part_of_people_flow if (capacity_reciving_zone > part_of_people_flow) else capacity_reciving_zone
 
-    def change_numofpeople(self, gzone, twidth, speed_at_exit):
+    def change_numofpeople(self, gzone: Zone, twidth: float, speed_at_exit: float):
         # Величина людского потока, через проем шириной twidth, чел./мин
         P = gzone["Density"] * speed_at_exit * twidth
         # Зная скорость потока, можем вычислить конкретное количество человек,
         # которое может перейти в принимющую зону (путем умножения потока на шаг моделирования)
         return P * self.MODELLING_STEP
 
-    def set_density(self, density):
+    def set_density(self, density: float):
         for z in self.zones.values():
             z["Density"] = density
 

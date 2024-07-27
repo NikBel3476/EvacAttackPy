@@ -1,8 +1,9 @@
 from BimEvac import Moving
 from BimIntruder import Intruder
+from EvacAttackShared import BimJsonObject
 
 class EvacAttackModel:
-    def __init__(self, json_bim):
+    def __init__(self, json_bim: BimJsonObject):
         self.bim = json_bim
         self.moving = Moving(json_bim)
         self.moving.active = True
@@ -30,5 +31,3 @@ class EvacAttackModel:
             self.intruder.victims += self.moving.zones[i_room]["NumPeople"]
             self.moving.zones[i_room]["NumPeople"] = 0
             self.moving.zones[i_room]["Density"] = 0
-
-

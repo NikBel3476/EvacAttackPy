@@ -1,6 +1,7 @@
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from sys import argv
 from EvacAttackModel import EvacAttackModel
+from EvacAttackShared import BimJsonObject
 import json
 
 class Server(BaseHTTPRequestHandler):
@@ -35,11 +36,11 @@ def run(server_class=ThreadingHTTPServer, handler_class=Server, port=8008):
     
     print('Starting httpd on port %d...' % port)
     httpd.serve_forever()
-    
+
 
 if len(argv) == 3:
     with open(argv[1]) as f:
-        j = json.load(f)
+        j: BimJsonObject = json.load(f)
     model = EvacAttackModel(j)
     model.moving.set_density(0.5)
     model.moving.set_people_by_density()
