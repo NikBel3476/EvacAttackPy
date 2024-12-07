@@ -3,7 +3,15 @@ from sys import argv
 from EvacAttackModel import EvacAttackModel
 from EvacAttackShared import BimJsonObject
 from functools import reduce
+from dataclasses import dataclass
 import json
+
+
+@dataclass
+class RoomDto:
+    modeling_id: str
+    num_of_people: int
+
 
 class Server(BaseHTTPRequestHandler):
     def _set_headers(self):
@@ -53,6 +61,13 @@ class Server(BaseHTTPRequestHandler):
                 zone_with_exit_id = reduce(lambda a, b: a if a[1] > b[1] else b, exits.items())
                 zones_with_exit_id[zone_id] = zone_with_exit_id[0]
             self.wfile.write(json.dumps(zones_with_exit_id).encode('utf-8'))
+        elif self.path == '/update_distribution':
+            rooms_distribution: list[dict[str, str]] = message
+            print(rooms_distribution)
+            for zone_id, zone in model.moving.zones.items():
+                for room_distribution in rooms_distribution:
+                    if zone_id == room_distribution['modeling_id']:
+                        zone['NumPeople'] = float(room_distribution['num_of_people'])
         else:
             if "Level" in message:
                 model.override = message
@@ -64,7 +79,7 @@ def run(server_class=ThreadingHTTPServer, handler_class=Server, port=8008):
     server_address = ('', port)
     httpd = server_class(server_address, handler_class)
     
-    print('Starting httpd on port %d...' % port)
+    print(f'Server started at http://localhost:{port}')
     httpd.serve_forever()
 
 

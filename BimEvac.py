@@ -2,6 +2,7 @@ import math
 import json
 from EvacAttackShared import points, room_area, BimJsonObject, BimJsonElement
 from math import exp
+from typing import Any
 
 
 class PeopleFlowVelocity(object):
@@ -151,10 +152,10 @@ class Moving(object):
         self.pfv = PeopleFlowVelocity(projection_area=0.1)
         self._step_counter = [0, 0, 0]
         self.direction_pairs = {}
-        self.zones: dict[str, Zone] = {
+        self.zones: dict[str, dict[str, Any]] = {
             el["Id"]: el for lvl in self.bim['Level'] for el in lvl['BuildElement'] if el['Sign'] in ('Room', 'Staircase')
         }
-        self.transits: dict[str, Transit] = {
+        self.transits: dict[str, dict[str, Any]] = {
             el["Id"]: el for lvl in self.bim['Level'] for el in lvl['BuildElement'] if el['Sign'] in ('DoorWayInt', 'DoorWay', 'DoorWayOut')
         }
         # Заполняем высоту
