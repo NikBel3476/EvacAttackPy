@@ -19,8 +19,10 @@ class Server(BaseHTTPRequestHandler):
         self.send_header('Content-type', 'application/json')
         self.end_headers()
         
+
     def do_HEAD(self):
         self._set_headers()
+
 
     def do_POST(self):
         # refuse to receive non-json content
@@ -75,6 +77,20 @@ class Server(BaseHTTPRequestHandler):
                 model.step()
             self.wfile.write(json.dumps(model.bim).encode("utf-8"))
 
+
+    def do_GET(self):
+        if self.path == '/distribution':
+            self._set_headers()
+
+            rooms_distribution: dict[str, float] = {}
+            for zone_id, zone in model.moving.zones.items():
+                rooms_distribution[zone_id] = zone['NumPeople']
+            self.wfile.write(json.dumps(rooms_distribution).encode('utf-8'))
+            return
+        
+        self.send_response(404)
+
+
 def run(server_class=ThreadingHTTPServer, handler_class=Server, port=8008):
     server_address = ('', port)
     httpd = server_class(server_address, handler_class)
@@ -87,7 +103,7 @@ if len(argv) == 3:
     with open(argv[1]) as f:
         j: BimJsonObject = json.load(f)
     model = EvacAttackModel(j)
-    model.moving.set_density(0.5)
+    model.moving.set_density(0.0)
     model.moving.set_people_by_density()
     run(port=int(argv[2]))
 else:

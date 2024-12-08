@@ -2,5 +2,8 @@ venv/
 __pycache__/
 
 .vscode
+build/
 
 .python-version
+*.log
+*.egg-info
