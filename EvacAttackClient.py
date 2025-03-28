@@ -179,6 +179,7 @@ if __name__ == '__main__':
         SERVER_URL = os.environ['SERVER_URL']
     except KeyError:
         logging.error('Define SERVER_URL env variable')
+        exit()
 
     logging.basicConfig(
         format='%(asctime)s %(levelname)-8s %(message)s',

@@ -5,7 +5,7 @@ from EvacAttackShared import BimJsonObject
 from functools import reduce
 from dataclasses import dataclass
 import json
-
+import copy
 
 @dataclass
 class RoomDto:
@@ -36,34 +36,34 @@ class Server(BaseHTTPRequestHandler):
         
         self._set_headers()
 
-        if self.path == '/exits':
-            # подсчёт количества шагов из каждой комнаты к выходам
-            zones_with_exit_id_counter: dict[str, dict[str, int]] = dict()
-            for _ in range(60):
-                model.step()
-                for _, zone in model.moving.zones.items():
-                    if zone['Id'] in zones_with_exit_id_counter:
-                        if zone['ExitTransitId'] in zones_with_exit_id_counter[zone['Id']]:
-                            zones_with_exit_id_counter[zone['Id']][zone['ExitTransitId']] += 1
-                        else:
-                            zones_with_exit_id_counter[zone['Id']] = {
-                                zone['ExitTransitId']: 1
-                            }
-                    else:
-                        zones_with_exit_id_counter[zone['Id']] = {
-                            zone['ExitTransitId']: 1
-                        }
+        # if self.path == '/exits':
+        #     # подсчёт количества шагов из каждой комнаты к выходам
+        #     zones_with_exit_id_counter: dict[str, dict[str, int]] = dict()
+        #     for _ in range(60):
+        #         model.step()
+        #         for _, zone in model.moving.zones.items():
+        #             if zone['Id'] in zones_with_exit_id_counter:
+        #                 if zone['ExitTransitId'] in zones_with_exit_id_counter[zone['Id']]:
+        #                     zones_with_exit_id_counter[zone['Id']][zone['ExitTransitId']] += 1
+        #                 else:
+        #                     zones_with_exit_id_counter[zone['Id']] = {
+        #                         zone['ExitTransitId']: 1
+        #                     }
+        #             else:
+        #                 zones_with_exit_id_counter[zone['Id']] = {
+        #                     zone['ExitTransitId']: 1
+        #                 }
                 
-                if not model.moving.active or model.moving.num_of_people_inside_building() < 0:
-                    break
+        #         if not model.moving.active or model.moving.num_of_people_inside_building() < 0:
+        #             break
             
-            # поиск в какой выход было больше шагов для всех комнат
-            zones_with_exit_id: dict[str, str] = dict()
-            for zone_id, exits in zones_with_exit_id_counter.items():
-                zone_with_exit_id = reduce(lambda a, b: a if a[1] > b[1] else b, exits.items())
-                zones_with_exit_id[zone_id] = zone_with_exit_id[0]
-            self.wfile.write(json.dumps(zones_with_exit_id).encode('utf-8'))
-        elif self.path == '/update_distribution':
+        #     # поиск в какой выход было больше шагов для всех комнат
+        #     zones_with_exit_id: dict[str, str] = dict()
+        #     for zone_id, exits in zones_with_exit_id_counter.items():
+        #         zone_with_exit_id = reduce(lambda a, b: a if a[1] > b[1] else b, exits.items())
+        #         zones_with_exit_id[zone_id] = zone_with_exit_id[0]
+        #     self.wfile.write(json.dumps(zones_with_exit_id).encode('utf-8'))
+        if self.path == '/update_distribution':
             rooms_distribution: list[dict[str, str]] = message
             print(rooms_distribution)
             for zone_id, zone in model.moving.zones.items():
@@ -85,9 +85,42 @@ class Server(BaseHTTPRequestHandler):
             rooms_distribution: dict[str, float] = {}
             for zone_id, zone in model.moving.zones.items():
                 rooms_distribution[zone_id] = zone['NumPeople']
+
             self.wfile.write(json.dumps(rooms_distribution).encode('utf-8'))
             return
-        
+        elif self.path == '/exits':
+            self._set_headers()
+
+            # подсчёт количества шагов из каждой комнаты к выходам
+            zones_with_exit_id_counter: dict[str, dict[str, int]] = dict()
+            current_model = copy.copy(model)
+            for _ in range(60):
+                current_model.step()
+                for _, zone in current_model.moving.zones.items():
+                    if zone['Id'] in zones_with_exit_id_counter:
+                        if zone['ExitTransitId'] in zones_with_exit_id_counter[zone['Id']]:
+                            zones_with_exit_id_counter[zone['Id']][zone['ExitTransitId']] += 1
+                        else:
+                            zones_with_exit_id_counter[zone['Id']] = {
+                                zone['ExitTransitId']: 1
+                            }
+                    else:
+                        zones_with_exit_id_counter[zone['Id']] = {
+                            zone['ExitTransitId']: 1
+                        }
+                
+                if not current_model.moving.active or current_model.moving.num_of_people_inside_building() < 0:
+                    break
+            
+            # поиск в какой выход было больше шагов для всех комнат
+            zones_with_exit_id: dict[str, str] = dict()
+            for zone_id, exits in zones_with_exit_id_counter.items():
+                zone_with_exit_id = reduce(lambda a, b: a if a[1] > b[1] else b, exits.items())
+                zones_with_exit_id[zone_id] = zone_with_exit_id[0]
+
+            self.wfile.write(json.dumps(zones_with_exit_id).encode('utf-8'))
+            return
+
         self.send_response(404)
 
 
