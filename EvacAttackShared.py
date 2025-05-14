@@ -30,7 +30,8 @@ class BimJsonElement(TypedDict):
     Name: str # Название элемента
     XY: list[Polygon] # Полигон элемента
     Output: list[str] # Массив UUID элементов, которые являются соседними к элементу
-    NumberOfPeople: int # Количество людей в элементе
+    # NumberOfPeople: int # Количество людей в элементе
+    NumPeople: float | None # Количество людей в элементе
     SizeZ: float # Высота элемента
     ZLevel: float # Уровень, на котором находится элемент
     Sign: BimElementSign # Тип элемента

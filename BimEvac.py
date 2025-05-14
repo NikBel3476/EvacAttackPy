@@ -152,22 +152,37 @@ class Moving(object):
         self.pfv = PeopleFlowVelocity(projection_area=0.1)
         self._step_counter = [0, 0, 0]
         self.direction_pairs = {}
-        self.zones: dict[str, dict[str, Any]] = {
-            el["Id"]: el for lvl in self.bim['Level'] for el in lvl['BuildElement'] if el['Sign'] in ('Room', 'Staircase')
-        }
-        self.transits: dict[str, dict[str, Any]] = {
-            el["Id"]: el for lvl in self.bim['Level'] for el in lvl['BuildElement'] if el['Sign'] in ('DoorWayInt', 'DoorWay', 'DoorWayOut')
-        }
+
         # Заполняем высоту
         for lvl in self.bim['Level']:
             for el in lvl['BuildElement']:
                 if "ZLevel" not in el:
                     el["ZLevel"] = lvl["ZLevel"]
+
+        # self.zones: dict[str, dict[str, Any]] = {
+        #     el["Id"]: el for lvl in self.bim['Level'] for el in lvl['BuildElement'] if el['Sign'] in ('Room', 'Staircase')
+        # }
+        self.zones: dict[str, BimJsonElement] = {
+            el["Id"]: el for lvl in self.bim['Level'] for el in lvl['BuildElement'] if el['Sign'] in ('Room', 'Staircase')
+        }
+        # self.transits: dict[str, dict[str, Any]] = {
+        #     el["Id"]: el for lvl in self.bim['Level'] for el in lvl['BuildElement'] if el['Sign'] in ('DoorWayInt', 'DoorWay', 'DoorWayOut')
+        # }
+        self.transits: dict[str, BimJsonElement] = {
+            el["Id"]: el for lvl in self.bim['Level'] for el in lvl['BuildElement'] if el['Sign'] in ('DoorWayInt', 'DoorWay', 'DoorWayOut')
+        }
+
         self.lvlname = 'NameLevel' if self.bim['Level'][0].get('NameLevel') else 'Name'
         self.safety_zones: list[Zone] = [
             {"Output": [key,], "ZLevel": val["ZLevel"], "NumPeople": 0.0, "Sign": "SZ", "Potential": 0.0}
             for key, val in self.transits.items() if val['Sign'] == "DoorWayOut"
         ]
+        # self.safety_zones: list[BimJsonElement] = [
+        #     zone
+        #     for zone_id, zone
+        #     in self.zones.items()
+        #     if len([output_id for output_id in zone['Output'] if self.transits[output_id]['Sign'] == 'DoorWayOut']) > 0
+        # ]
         for t in self.transits.values():
             t["IsBlocked"] = False
             t["IsVisited"] = False

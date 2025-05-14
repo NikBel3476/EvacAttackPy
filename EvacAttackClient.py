@@ -60,21 +60,28 @@ def visualization():
                 cv_els = el_id_to_cv.get(e)
                 if cv_els is None:
                     continue
+                if e in moving.zones:
+                    c.itemconfigure(cv_els["text"], text="{:6.2f}".format(moving.zones[e]["NumPeople"]))
+                    output_transit_ids = [transit['Id'] for transit_id, transit in moving.transits.items() if transit['Sign'] == 'DoorWayOut']
+                    # Fill only rooms connected to output transits
+                    for zone_id, zone in moving.zones.items():
+                        intersection = [output_id for output_id in el['Output'] if output_id in output_transit_ids]
+                        if len(intersection) > 0:
+                            c.itemconfigure(cv_els["polygon"], fill=moving.zones[e].get("Color"))
+                # if e == safety_zone["Id"]:
+                #     c.itemconfigure(cv_els["polygon"], fill=moving.zones[e].get("Color"))
                 if e in moving.transits:
                     c.itemconfigure(cv_els["text"], text="{:6.2f}".format(abs(moving.transits[e]["NumPeople"])))
                     if cv_els.get("arrow") is not None:
                         if abs(moving.transits[e]["NumPeople"]) < 0.0001:
                             c.itemconfigure(cv_els["arrow"], arrow=tkinter.NONE, fill=moving.transits[e].get("Color"),
-                                arrowshape=(16, 20, 6))
+                                arrowshape=(30, 40, 10))
                         elif moving.transits[e]["NumPeople"] > 0:
                             c.itemconfigure(cv_els["arrow"], arrow=tkinter.LAST, fill=moving.transits[e].get("Color"),
-                                arrowshape=(16, 20, 6))
+                                arrowshape=(30, 40, 10))
                         elif moving.transits[e]["NumPeople"] < 0:
                             c.itemconfigure(cv_els["arrow"], arrow=tkinter.FIRST, fill=moving.transits[e].get("Color"),
-                                arrowshape=(16, 20, 6))
-                if e in moving.zones:
-                    c.itemconfigure(cv_els["text"], text="{:6.2f}".format(moving.zones[e]["NumPeople"]))
-                    c.itemconfigure(cv_els["polygon"], fill=moving.zones[e].get("Color"))
+                                arrowshape=(30, 40, 10))
 
         # if intruder and intruder.precalculate_path and intruder.p_path:
         #     return
@@ -98,7 +105,8 @@ def visualization():
                 for room_id, num_of_people in rooms_distribution.items():
                     # logging.info(f'{room_id}: {num_of_people}')
                     if zone_id == room_id:
-                        model.moving.zones[zone_id]['NumPeople'] = num_of_people
+                        model.moving.zones[zone_id]['NumPeople'] = num_of_people if num_of_people > 0 else 0
+
             # FIXME: complete modeling without changing number of people
             vis_step()
             # restore number of people in rooms after modeling
