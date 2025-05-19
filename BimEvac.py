@@ -129,14 +129,14 @@ class Zone(BimJsonElement):
     Potential: float
     Color: str
     Density: float
-    NumPeople: float
+    # NumPeople: float
     ExitTransitId: str
 
 
 class Transit(BimJsonElement):
     IsBlocked: bool
     IsVisited: bool
-    NumPeople: float
+    # NumPeople: float
     Width: float
     Color: str
 
@@ -255,8 +255,10 @@ class Moving(object):
                     transit["Color"] = receiving_zone.get("Color")
                     if receiving_zone["Sign"] == "SZ":
                         giving_zone["ExitTransitId"] = transit["Id"]
+                        giving_zone["EvacuationPath"] = [receiving_zone["Id"]]
                     else:
                         giving_zone["ExitTransitId"] = receiving_zone["ExitTransitId"]
+                        giving_zone["EvacuationPath"] = receiving_zone["EvacuationPath"] + [receiving_zone["Id"]]
                 zones_to_process.sort(key=lambda d: d["Potential"])
 
                 self._step_counter[2] += 1

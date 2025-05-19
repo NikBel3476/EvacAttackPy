@@ -92,7 +92,10 @@ class Server(BaseHTTPRequestHandler):
             self._set_headers()
 
             # подсчёт количества шагов из каждой комнаты к выходам
+            # key - zone id, value: {out zone id, count}
             zones_with_exit_id_counter: dict[str, dict[str, int]] = dict()
+            # key - zone id, value - {out zone id, path (list of zones)}
+            paths_to_output: dict[str, dict[str, list[str]]] = dict()
             current_model = copy.copy(model)
             for _ in range(60):
                 current_model.step()
@@ -108,15 +111,19 @@ class Server(BaseHTTPRequestHandler):
                         zones_with_exit_id_counter[zone['Id']] = {
                             zone['ExitTransitId']: 1
                         }
+                    paths_to_output[zone['Id']] = {
+                        zone['ExitTransitId']: zone["EvacuationPath"]
+                    }
                 
                 if not current_model.moving.active or current_model.moving.num_of_people_inside_building() < 0:
                     break
             
             # поиск в какой выход было больше шагов для всех комнат
-            zones_with_exit_id: dict[str, str] = dict()
+            # key - zone id, value - {out zone id, path}
+            zones_with_exit_id: dict[str, dict[str, list[str]]] = dict()
             for zone_id, exits in zones_with_exit_id_counter.items():
                 zone_with_exit_id = reduce(lambda a, b: a if a[1] > b[1] else b, exits.items())
-                zones_with_exit_id[zone_id] = zone_with_exit_id[0]
+                zones_with_exit_id[zone_id] = {zone_with_exit_id[0]: paths_to_output[zone_id][zone_with_exit_id[0]]}
 
             self.wfile.write(json.dumps(zones_with_exit_id).encode('utf-8'))
             return
