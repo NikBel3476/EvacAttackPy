@@ -5,13 +5,16 @@ from EvacAttackShared import points, is_el_on_lvl, point_in_polygon, BimJsonObje
 from EvacAttackModel import EvacAttackModel
 from pprint import pformat
 from threading import Timer
+from typing import Any
 import os
 import requests
 import logging
 
 scale = 18
 REQUEST_TIMEOUT_IN_SEC = 10
-DEFAULT_REQUEST_TIMEOUT_IN_SEC = 5.0
+DEFAULT_REQUEST_TIMEOUT_IN_SEC = 5
+REQUEST_COLORS_TIMEOUT_IN_SEC = 10
+DEFAULT_COLORS_REQUEST_TIMEOUT_IN_SEC = 5
 
 def visualization():
 
@@ -68,8 +71,25 @@ def visualization():
                         intersection = [output_id for output_id in el['Output'] if output_id in output_transit_ids]
                         if len(intersection) > 0:
                             c.itemconfigure(cv_els["polygon"], fill=moving.zones[e].get("Color"))
+
+                     # Print arrows
+                    # for zone_id, zone in moving.zones:
+                    #     for transit_id, transit in moving.transits:
+                    #         if cv_els.get("arrow") is not None:
+                    #             if abs(moving.transits[e]["NumPeople"]) < 0.0001:
+                    #                 c.itemconfigure(cv_els["arrow"], arrow=tkinter.NONE, fill=moving.transits[e].get("Color"),
+                    #                     arrowshape=(30, 40, 10))
+                    #             elif moving.transits[e]["NumPeople"] > 0:
+                    #                 c.itemconfigure(cv_els["arrow"], arrow=tkinter.LAST, fill=moving.transits[e].get("Color"),
+                    #                     arrowshape=(30, 40, 10))
+                    #             elif moving.transits[e]["NumPeople"] < 0:
+                    #                 c.itemconfigure(cv_els["arrow"], arrow=tkinter.FIRST, fill=moving.transits[e].get("Color"),
+                    #                     arrowshape=(30, 40, 10))
+
                 # if e == safety_zone["Id"]:
                 #     c.itemconfigure(cv_els["polygon"], fill=moving.zones[e].get("Color"))
+
+                # print arrows
                 if e in moving.transits:
                     c.itemconfigure(cv_els["text"], text="{:6.2f}".format(abs(moving.transits[e]["NumPeople"])))
                     if cv_els.get("arrow") is not None:
@@ -82,6 +102,7 @@ def visualization():
                         elif moving.transits[e]["NumPeople"] < 0:
                             c.itemconfigure(cv_els["arrow"], arrow=tkinter.FIRST, fill=moving.transits[e].get("Color"),
                                 arrowshape=(30, 40, 10))
+                
 
         # if intruder and intruder.precalculate_path and intruder.p_path:
         #     return
@@ -119,6 +140,41 @@ def visualization():
 
         request_distribution_timer = Timer(REQUEST_TIMEOUT_IN_SEC, request_distribution_data)
         request_distribution_timer.start()
+
+    def request_colors_data():
+        try:
+            response = requests.get(
+                f'{SERVER_URL}/colors',
+                timeout=DEFAULT_COLORS_REQUEST_TIMEOUT_IN_SEC
+            )
+            '''
+            {
+                'zones': model.moving.zones,
+                'transits': model.moving.transits
+            }
+            '''
+            zones_colors: dict[str, dict[str, Any]] = json.loads(response.content)
+
+            for zone_id, zone in model.moving.zones.items():
+                for zone_id_with_color, zone_with_color in zones_colors['zones'].items():
+                    if zone_id == zone_id_with_color:
+                        model.moving.zones[zone_id]['Color'] = zone_with_color['Color']
+
+            for transit_id, transit in model.moving.transits.items():
+                for transit_id_with_color, transit_with_color in zones_colors['transits'].items():
+                    if transit_id == transit_id_with_color:
+                        model.moving.transits[transit_id]['Color'] = transit_with_color['Color']
+
+            # for zone_id in model.moving.zones:
+            #     for zone_id_with_path, [output_id, path] in rooms_with_outputs:
+            #         if zone_id == zone_id_with_path:
+            #             model.moving.zones[zone_id]['EvacuationPathTransits'] = {output_id, path}
+            vis_step()
+        except requests.exceptions.Timeout:
+            logging.error('Canno get modeling data. Server is not responding')
+        
+        request_colors_timer = Timer(REQUEST_COLORS_TIMEOUT_IN_SEC, request_colors_data)
+        request_colors_timer.start()
 
     root = tkinter.Tk()
     root.title("Визуализация")
@@ -180,6 +236,7 @@ def visualization():
                     c.itemconfigure(t, text=out_doors.index(el))
 
     request_distribution_data()
+    request_colors_data()
     root.mainloop() 
 
 if __name__ == '__main__':

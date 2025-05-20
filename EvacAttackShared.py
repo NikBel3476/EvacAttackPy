@@ -1,6 +1,6 @@
 import math
 from operator import itemgetter
-from typing import TypedDict, Literal, TypeAlias, Any
+from typing import Optional, TypedDict, Literal, TypeAlias, Any
 
 
 BimElementSign: TypeAlias = Literal[
@@ -31,9 +31,9 @@ class BimJsonElement(TypedDict):
     XY: list[Polygon] # Полигон элемента
     Output: list[str] # Массив UUID элементов, которые являются соседними к элементу
     # NumberOfPeople: int # Количество людей в элементе
-    NumPeople: float | None # Количество людей в элементе
+    NumPeople: Optional[float] # Количество людей в элементе
     SizeZ: float # Высота элемента
-    ZLevel: float # Уровень, на котором находится элемент
+    ZLevel: Optional[float] # Уровень, на котором находится элемент
     Sign: BimElementSign # Тип элемента
 
 
@@ -55,7 +55,7 @@ class BimJsonAddress(TypedDict):
 class BimJsonLevel(TypedDict):
     """ Структура, описывающая этаж """
     
-    Name: str # Название этажа
+    NameLevel: str # Название этажа
     BuildElement: list[BimJsonElement] # Массив элементов, которые принадлежат этажу
     ZLevel: float # Высота этажа над нулевой отметкой
 
@@ -63,8 +63,8 @@ class BimJsonLevel(TypedDict):
 class BimJsonObject(TypedDict):
     """ Структура, описывающая здание """
 
-    Address: str # Информация о местоположении объекта
-    BuildingName: str # Название здания
+    Address: BimJsonAddress # Информация о местоположении объекта
+    NameBuilding: str # Название здания
     Level: list[BimJsonLevel] # Массив уровней здания
     FileData: BimJsonFileData # Информация о файле
 

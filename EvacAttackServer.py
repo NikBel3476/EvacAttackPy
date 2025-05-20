@@ -94,8 +94,8 @@ class Server(BaseHTTPRequestHandler):
             # подсчёт количества шагов из каждой комнаты к выходам
             # key - zone id, value: {out zone id, count}
             zones_with_exit_id_counter: dict[str, dict[str, int]] = dict()
-            # key - zone id, value - {out zone id, path (list of zones)}
-            paths_to_output: dict[str, dict[str, list[str]]] = dict()
+            # key - zone id, value - list of transits to output
+            paths_to_output: dict[str, list[str]] = dict()
             current_model = copy.copy(model)
             for _ in range(60):
                 current_model.step()
@@ -111,21 +111,45 @@ class Server(BaseHTTPRequestHandler):
                         zones_with_exit_id_counter[zone['Id']] = {
                             zone['ExitTransitId']: 1
                         }
-                    paths_to_output[zone['Id']] = {
-                        zone['ExitTransitId']: zone["EvacuationPath"]
-                    }
+                    paths_to_output[zone['Id']] = zone['EvacuationPathTransits']
+                    # paths_to_output[zone['Id']] = {
+                    #     zone['ExitTransitId']: zone['EvacuationPath']
+                    # }
                 
                 if not current_model.moving.active or current_model.moving.num_of_people_inside_building() < 0:
                     break
             
             # поиск в какой выход было больше шагов для всех комнат
-            # key - zone id, value - {out zone id, path}
-            zones_with_exit_id: dict[str, dict[str, list[str]]] = dict()
+            zones_with_exit_id: dict[str, str] = dict()
+            # key - zone id, value - {out zone id, list of transits to output}
+            # zones_with_exit_id: dict[str, dict[str, list[str]]] = dict()
             for zone_id, exits in zones_with_exit_id_counter.items():
                 zone_with_exit_id = reduce(lambda a, b: a if a[1] > b[1] else b, exits.items())
-                zones_with_exit_id[zone_id] = {zone_with_exit_id[0]: paths_to_output[zone_id][zone_with_exit_id[0]]}
+                zones_with_exit_id[zone_id] = zone_with_exit_id[0]
+                # zones_with_exit_id[zone_id] = {zone_with_exit_id[0]: paths_to_output[zone_id]}
 
+            # self.wfile.write(json.dumps({
+            #     'zones_with_exit_id': zones_with_exit_id,
+            #     'colors': {
+            #         'zones': model.moving.zones,
+            #         'transits': model.moving.transits
+            #     }
+            # }).encode('utf-8'))
             self.wfile.write(json.dumps(zones_with_exit_id).encode('utf-8'))
+            return
+        elif self.path == '/colors':
+            self._set_headers()
+
+            current_model = copy.copy(model)
+            for _ in range(60):
+                current_model.step()
+                
+                if not current_model.moving.active or current_model.moving.num_of_people_inside_building() < 0:
+                    break
+            self.wfile.write(json.dumps({
+                'zones': model.moving.zones,
+                'transits': model.moving.transits
+            }).encode('utf-8'))
             return
 
         self.send_response(404)
